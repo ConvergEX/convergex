@@ -16,7 +16,7 @@ class UpdateSerialNumberWizard(models.TransientModel):
             if serial_no_id:
                 if serial_no_id and serial_no_id.product_qty:
                     move_line_id.lot_id = serial_no_id.id
-                    move_line_id.qty_done += 1
+                    move_line_id.qty_done = 1.0
                 else:
                     raise UserError(_('Stock not available for given lot'))
             else:
