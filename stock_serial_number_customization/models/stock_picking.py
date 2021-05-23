@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from odoo import models, fields
+from odoo import models, fields, _
 
 
 class StockPicking(models.Model):
@@ -39,4 +39,9 @@ class StockPicking(models.Model):
                     else:
                         self.move_line_nosuggest_ids += new_move_line
                     return
+            else:
+                return {'warning': {
+                    'title': _('Waiting availability'),
+                    'message': _('The Serial Numbers "%(barcode)s" is Waiting availability.') % {'barcode': barcode}
+                }}
         return res
