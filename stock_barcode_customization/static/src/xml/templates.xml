@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+    <t t-name="stock_bag_number_template">
+        <div class="bag_number_summary mt8" t-if="OperationType == 'outgoing'">
+            <i class="fa fa-shopping-bag"/> Bag # <span t-if="bagName" t-esc="bagName" />
+        </div>
+    </t>
+</templates>
