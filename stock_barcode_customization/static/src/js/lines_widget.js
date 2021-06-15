@@ -262,13 +262,13 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
          * @param {Object} linesActions
          * @returns {Promise}
          */
-        _step_product: function(barcode, linesActions) {
+        _step_product: async function(barcode, linesActions) {
             var self = this;
             this.currentStep = 'product';
             this.stepState = $.extend(true, {}, this.currentState);
             var errorMessage;
 
-            var product = this._isProduct(barcode);
+            var product = await this._isProduct(barcode);
             if (product) {
                 debugger;
                 if (!self.currentState.x_studio_bag_ && self.currentState.picking_type_code == 'outgoing') {
@@ -382,8 +382,8 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                 });
             }
         },
-        _step_lot: function(barcode, linesActions) {
-            if (!this.groups.group_production_lot || !this.requireLotNumber) {
+        _step_lot: async function (barcode, linesActions) {
+            if (! this.groups.group_production_lot || !this.requireLotNumber)  {
                 return Promise.reject();
             }
             this.currentStep = 'lot';
@@ -392,16 +392,17 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
             var self = this;
 
             // Bypass this step if needed.
-            if (this.productsByBarcode[barcode]) {
+            var product = await this._isProduct(barcode);
+            if (product) {
                 return this._step_product(barcode, linesActions);
             } else if (this.locationsByBarcode[barcode]) {
                 return this._step_destination(barcode, linesActions);
             }
 
-            var getProductFromLastScannedLine = function() {
+            var getProductFromLastScannedLine = function () {
                 if (self.scannedLines.length) {
                     var idOrVirtualId = self.scannedLines[self.scannedLines.length - 1];
-                    var line = _.find(self._getLines(self.currentState), function(line) {
+                    var line = _.find(self._getLines(self.currentState), function (line) {
                         return line.virtual_id === idOrVirtualId || line.id === idOrVirtualId;
                     });
                     if (line) {
@@ -417,21 +418,21 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                 return false;
             };
 
-            var getProductFromCurrentPage = function() {
-                return _.map(self.pages[self.currentPageIndex].lines, function(line) {
+            var getProductFromCurrentPage = function () {
+                return _.map(self.pages[self.currentPageIndex].lines, function (line) {
                     return line.product_id.id;
                 });
             };
 
-            var getProductFromOperation = function() {
-                return _.map(self._getLines(self.currentState), function(line) {
+            var getProductFromOperation = function () {
+                return _.map(self._getLines(self.currentState), function (line) {
                     return line.product_id.id;
                 });
             };
 
-            var readProductQuant = function(product_id, lots) {
+            var readProductQuant = function (product_id, lots) {
                 var advanceSettings = self.groups.group_tracking_lot || self.groups.group_tracking_owner;
-                var product_barcode = _.findKey(self.productsByBarcode, function(product) {
+                var product_barcode = _.findKey(self.productsByBarcode, function (product) {
                     return product.id === product_id;
                 });
                 var product = false;
@@ -443,7 +444,7 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                 }
 
                 if (!product || advanceSettings) {
-                    var lot_ids = _.map(lots, function(lot) {
+                    var lot_ids = _.map(lots, function (lot) {
                         return lot.id;
                     });
                     prom = self._rpc({
@@ -457,9 +458,9 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                     });
                 }
 
-                return prom.then(function(res) {
+                return prom.then(function (res) {
                     product = product || res.product;
-                    var lot = _.find(lots, function(lot) {
+                    var lot = _.find(lots, function (lot) {
                         return lot.product_id[0] === product.id;
                     });
                     var data = {
@@ -475,29 +476,29 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                 });
             };
 
-            var getLotInfo = function(lots) {
-                var products_in_lots = _.map(lots, function(lot) {
+            var getLotInfo = function (lots) {
+                var products_in_lots = _.map(lots, function (lot) {
                     return lot.product_id[0];
                 });
                 var products = getProductFromLastScannedLine();
                 var product_id = _.intersection(products, products_in_lots);
-                if (!product_id.length) {
+                if (! product_id.length) {
                     products = getProductFromCurrentPage();
                     product_id = _.intersection(products, products_in_lots);
                 }
-                if (!product_id.length) {
+                if (! product_id.length) {
                     products = getProductFromOperation();
                     product_id = _.intersection(products, products_in_lots);
                 }
-                if (!product_id.length) {
+                if (! product_id.length) {
                     product_id = [lots[0].product_id[0]];
                 }
                 return readProductQuant(product_id[0], lots);
             };
 
-            var searchRead = function(barcode) {
+            var searchRead = function (barcode) {
                 // Check before if it exists reservation with the lot.
-                var lines_with_lot = _.filter(self.currentState.move_line_ids, function(line) {
+                var lines_with_lot = _.filter(self.currentState.move_line_ids, function (line) {
                     return (line.lot_id && line.lot_id[1] === barcode) || line.lot_name === barcode;
                 });
                 var line_with_lot;
@@ -506,7 +507,7 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                     // Get last scanned product if several products have the same lot name
                     var last_product = lines_with_lot.length > 1 && getProductFromLastScannedLine();
                     if (last_product) {
-                        var last_product_index = _.findIndex(lines_with_lot, function(line) {
+                        var last_product_index = _.findIndex(lines_with_lot, function (line) {
                             return line.product_id && line.product_id.id === last_product.id;
                         });
                         if (last_product_index > -1) {
@@ -527,13 +528,11 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                     def = self._rpc({
                         model: 'stock.production.lot',
                         method: 'search_read',
-                        domain: [
-                            ['name', '=', barcode]
-                        ],
+                        domain: [['name', '=', barcode]],
                     });
                 }
-                return def.then(function(res) {
-                    if (!res.length) {
+                return def.then(function (res) {
+                    if (! res.length) {
                         errorMessage = _t('The scanned lot does not match an existing one.');
                         return Promise.reject(errorMessage);
                     }
@@ -541,7 +540,7 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                 });
             };
 
-            var create = function(barcode, product) {
+            var create = function (barcode, product) {
                 return self._rpc({
                     model: 'stock.production.lot',
                     method: 'create',
@@ -555,33 +554,33 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
 
             var def;
             if (this.currentState.use_create_lots &&
-                !this.currentState.use_existing_lots) {
+                ! this.currentState.use_existing_lots) {
                 // Do not create lot if product is not set. It could happens by a
                 // direct lot scan from product or source location step.
                 var product = getProductFromLastScannedLine();
-                if (!product || product.tracking === "none") {
+                if (! product  || product.tracking === "none") {
                     return Promise.reject();
                 }
-                def = Promise.resolve({ lot_name: barcode, product: product });
-            } else if (!this.currentState.use_create_lots &&
-                this.currentState.use_existing_lots) {
+                def = Promise.resolve({lot_name: barcode, product: product});
+            } else if (! this.currentState.use_create_lots &&
+                        this.currentState.use_existing_lots) {
                 def = searchRead(barcode);
             } else {
-                def = searchRead(barcode).then(function(res) {
+                def = searchRead(barcode).then(function (res) {
                     return Promise.resolve(res);
-                }, function(errorMessage) {
+                }, function (errorMessage) {
                     var product = getProductFromLastScannedLine();
                     if (product && product.tracking !== "none") {
-                        return create(barcode, product).then(function(lot_id) {
-                            return Promise.resolve({ lot_id: lot_id, lot_name: barcode, product: product });
+                        return create(barcode, product).then(function (lot_id) {
+                            return Promise.resolve({lot_id: lot_id, lot_name: barcode, product: product});
                         });
                     }
                     return Promise.reject(errorMessage);
                 });
             }
-            return def.then(function(lot_info) {
+            return def.then(function (lot_info) {
                 var product = lot_info.product;
-                if (product.tracking === 'serial' && self._lot_name_used(product, barcode)) {
+                if (product.tracking === 'serial' && self._lot_name_used(product, barcode)){
                     errorMessage = _t('The scanned serial number is already used.');
                     return Promise.reject(errorMessage);
                 }
@@ -600,7 +599,7 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                     'package_id': lot_info.package_id,
                 });
                 if (res.isNewLine) {
-                    function handle_line() {
+                    function handle_line(){
                         self.scannedLines.push(res.lineDescription.virtual_id);
                         linesActions.push([self.linesWidget.addProduct, [res.lineDescription, self.actionParams.model]]);
                     }
@@ -615,10 +614,10 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                                 res.lineDescription.location_id.id,
                                 res.lineDescription.prod_lot_id[0],
                             ],
-                        }).then(function(theoretical_qty) {
+                        }).then(function (theoretical_qty) {
                             res.lineDescription.theoretical_qty = theoretical_qty;
                             handle_line();
-                            return Promise.resolve({ linesActions: linesActions });
+                            return Promise.resolve({linesActions: linesActions});
                         });
                     }
                     handle_line();
@@ -630,7 +629,7 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                     linesActions.push([self.linesWidget.incrementProduct, [res.id || res.virtualId, 1, self.actionParams.model]]);
                     linesActions.push([self.linesWidget.setLotName, [res.id || res.virtualId, barcode]]);
                 }
-                return Promise.resolve({ linesActions: linesActions });
+                return Promise.resolve({linesActions: linesActions});
             });
         },
 
