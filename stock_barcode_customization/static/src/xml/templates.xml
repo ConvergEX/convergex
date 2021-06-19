@@ -2,7 +2,28 @@
 <templates id="template" xml:space="preserve">
     <t t-name="stock_bag_number_template">
         <div class="bag_number_summary mt8" t-if="OperationType == 'outgoing'">
-            <i class="fa fa-shopping-bag"/> Bag # <span t-if="bagName" t-esc="bagName" />
+            <i class="fa fa-shopping-bag" /> Bag # <span t-if="bagName" t-esc="bagName" />
         </div>
+    </t>
+    <t t-extend="stock_barcode_lines_template">
+        <t t-jquery="div[name='quantity'] i" t-operation="replace">
+            <span><b>Done Qty: &amp;nbsp;</b></span>
+        </t>
+        <t t-jquery="div[name='quantity']" t-operation="before">
+            <t t-if="line.product_move_qty and line.picking_type_code == 'outgoing'">
+                <span class="o_line_lot_product_qty"><b>Order Qty: &amp;nbsp;
+                    <t t-esc="line.product_move_qty" /></b></span>
+                <span class="o_line_lot_uom">
+                    <t t-esc="line.move_product_uom" /></span>
+            </t>
+        </t>
+        <t t-jquery="span.o_line_lot_name" t-operation="after">
+            <t t-if="line.picking_type_code == 'outgoing'">
+                <t t-if="line.x_studio_scan_descriptor == 'ICCID #'"><strong>ICCID#:  &amp;nbsp;</strong><span class="o_line_lot_iccid" t-esc="line.iccid"></span></t>
+                <t t-if="line.x_studio_scan_descriptor == 'IMEI #'"><strong>IMEI#:  &amp;nbsp;</strong> <span class="o_line_lot_imei" t-esc="line.imei"></span></t>
+                <t t-if="line.x_studio_scan_descriptor == 'MAC Address #'"><strong>Mac Address#:  &amp;nbsp;</strong><span class="o_line_lot_mac_address" t-esc="line.mac_address"></span></t>
+                <t t-if="line.x_studio_scan_desc_2_1 == 'Cell #'"><strong>Cell#:  &amp;nbsp;</strong><span class="o_line_lot_cell" t-esc="line.cell"></span><br /></t>
+            </t>
+        </t>
     </t>
 </templates>

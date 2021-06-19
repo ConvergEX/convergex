@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from odoo import models
+from odoo import api, models
 
 
 class StockPicking(models.Model):
@@ -8,4 +8,41 @@ class StockPicking(models.Model):
     def _get_picking_fields_to_read(self):
         res = super(StockPicking, self)._get_picking_fields_to_read()
         res.append('x_studio_bag_')
+        return res
+
+    def get_barcode_view_state(self):
+        pickings = super(StockPicking, self).get_barcode_view_state()
+        for picking in pickings:
+            for move_line_id in picking['move_line_ids']:
+                product_move_id = self.env['stock.move'].search([('id', '=', move_line_id.get('move_id')[0])])
+                move_line_id['product_move_qty'] = product_move_id.product_uom_qty
+                move_line_id['move_product_uom'] = product_move_id.product_uom.name
+                move_line_id['picking_type_code'] = picking['picking_type_code']
+                if move_line_id.get('lot_id'):
+                    lot_id = self.env['stock.production.lot'].search([('id', '=', move_line_id.get('lot_id')[0])])
+                    move_line_id['cell'] = lot_id.x_studio_cell_
+                    move_line_id['iccid'] = lot_id.x_studio_iccid_
+                    move_line_id['imei'] = lot_id.x_studio_imei_
+                    move_line_id['mac_address'] = lot_id.x_studio_mac_address__1
+        return pickings
+
+    @api.model
+    def _get_move_line_ids_fields_to_read(self):
+        move_line_ids_fields = super(StockPicking, self)._get_move_line_ids_fields_to_read()
+        move_line_ids_fields.append('move_id')
+        return move_line_ids_fields
+
+class Product(models.Model):
+    _inherit = 'product.product'
+
+    def read_product_and_package(self, lot_ids=False, fetch_product=False):
+        res = super(Product, self).read_product_and_package(lot_ids=lot_ids, fetch_product=fetch_product)
+        picking_id = self._context.get('id')
+        if picking_id:
+            picking_id = self.env['stock.picking'].browse(picking_id)
+            move_id = picking_id.move_ids_without_package.filtered(lambda ml: ml.product_id.id == self.id)
+            res['product_move_qty'] = move_id.product_uom_qty
+            res['move_product_uom'] = move_id.product_uom.name
+            res['x_studio_scan_descriptor'] = self.x_studio_scan_descriptor
+            res['x_studio_scan_desc_2_1'] = self.x_studio_scan_desc_2_1
         return res

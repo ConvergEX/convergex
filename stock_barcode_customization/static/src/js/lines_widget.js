@@ -3,6 +3,7 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
 
     var LinesWidget = require('stock_barcode.LinesWidget');
     var ClientAction = require('stock_barcode.ClientAction');
+    var PickingClientAction = require('stock_barcode.picking_client_action');
     var core = require('web.core');
     var QWeb = core.qweb;
 
@@ -80,6 +81,35 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                         $line.addClass('o_line_completed');
                     }
                 }
+            }
+        },
+
+        setlotinformation: function(id_or_virtual_id, cell, iccid, imei, mac_address, product_move_qty, move_product_uom) {
+            var $line = this.$("[data-id='" + id_or_virtual_id + "']");
+            var $o_line_lot_iccid = $line.find('.o_line_lot_iccid');
+            var o_line_lot_imei = $line.find('.o_line_lot_imei');
+            var o_line_lot_mac_address = $line.find('.o_line_lot_mac_address');
+            var o_line_lot_cell = $line.find('.o_line_lot_cell');
+            var o_line_lot_product_qty = $line.find('.o_line_lot_product_qty');
+            var o_line_lot_uom = $line.find('.o_line_lot_uom');
+            if (!$o_line_lot_iccid.text()) {
+                var $span = $('<span>', {class: 'o_line_lot_iccid', text: (iccid ? iccid : '')});
+                $o_line_lot_iccid.replaceWith($span);
+            }
+
+            if (!o_line_lot_imei.text()) {
+                var $span = $('<span>', {class: 'o_line_lot_imei', text: (imei ? imei : '')});
+                o_line_lot_imei.replaceWith($span);
+            }
+
+            if (!o_line_lot_mac_address.text()) {
+                var $span = $('<span>', {class: 'o_line_lot_mac_address', text: (mac_address ? mac_address : '')});
+                o_line_lot_mac_address.replaceWith($span);
+            }
+
+            if (!o_line_lot_cell.text()) {
+                var $span = $('<span>', {class: 'o_line_lot_cell', text: (cell ? cell : '')});
+                o_line_lot_cell.replaceWith($span);
             }
         },
     });
@@ -236,7 +266,6 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
             }, function(specializedErrorMessage) {
                 delete self.scanned_location;
                 self.currentStep = 'source';
-                debugger;
                 if (specializedErrorMessage) {
                     return Promise.reject(specializedErrorMessage);
                 }
@@ -270,15 +299,24 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
 
             var product = await this._isProduct(barcode);
             if (product) {
-                debugger;
                 if (!self.currentState.x_studio_bag_ && self.currentState.picking_type_code == 'outgoing') {
                     errorMessage = _t('Please Scan Bag first before adding product.');
                     return Promise.reject(errorMessage);
                 }
+                var prom = await self._rpc({
+                    model: 'product.product',
+                    method: 'read_product_and_package',
+                    args: [product.id],
+                    kwargs: {
+                        lot_ids: false,
+                        fetch_product: false,
+                    },
+                    context: self.currentState
+                });
                 if (product.tracking !== 'none' && self.requireLotNumber) {
                     this.currentStep = 'lot';
                 }
-                var res = this._incrementLines({ 'product': product, 'barcode': barcode });
+                var res = this._incrementLines({ 'product': product, 'barcode': barcode , 'product_move_qty': prom.product_move_qty, 'move_product_uom': prom.move_product_uom,  'x_studio_scan_descriptor': prom.x_studio_scan_descriptor, 'x_studio_scan_desc_2_1': prom.x_studio_scan_desc_2_1});
                 if (res.isNewLine) {
                     if (this.actionParams.model === 'stock.inventory') {
                         // FIXME sle: add owner_id, prod_lot_id, owner_id, product_uom_id
@@ -314,7 +352,6 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                     return Promise.resolve({ linesActions: res.linesActions });
                 };
                 var fail = function(specializedErrorMessage) {
-                    debugger;
                     self.currentStep = 'product';
                     if (specializedErrorMessage == 'The scanned lot does not match an existing one.') {
                         if (!self.currentState.x_studio_bag_ && self.currentState.picking_type_code == 'outgoing') {
@@ -442,7 +479,6 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                     product = self.productsByBarcode[product_barcode];
                     product.barcode = product_barcode;
                 }
-
                 if (!product || advanceSettings) {
                     var lot_ids = _.map(lots, function (lot) {
                         return lot.id;
@@ -455,6 +491,7 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                             lot_ids: advanceSettings ? lot_ids : false,
                             fetch_product: !(product),
                         },
+                        context: self.currentState
                     });
                 }
 
@@ -466,7 +503,12 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                     var data = {
                         lot_id: lot.id,
                         lot_name: lot.display_name,
-                        product: product
+                        product: product,
+                        mac_address: lot.x_studio_mac_address__1,
+                        imei: lot.x_studio_imei_,
+                        iccid: lot.x_studio_iccid_,
+                        cell: lot.x_studio_cell_
+
                     };
                     if (res && res.quant) {
                         data.package_id = res.quant.package_id;
@@ -597,6 +639,10 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                     'lot_name': lot_info.lot_name,
                     'owner_id': lot_info.owner_id,
                     'package_id': lot_info.package_id,
+                    'cell': lot_info.cell,
+                    'iccid': lot_info.iccid,
+                    'imei': lot_info.imei,
+                    'mac_address': lot_info.mac_address,
                 });
                 if (res.isNewLine) {
                     function handle_line(){
@@ -620,6 +666,25 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                             return Promise.resolve({linesActions: linesActions});
                         });
                     }
+                    if (self.actionParams.model === 'stock.picking') {
+                        return self._rpc({
+                            model: 'product.product',
+                            method: 'read_product_and_package',
+                            args: [res.lineDescription.product_id.id],
+                            kwargs: {
+                                lot_ids: false,
+                                fetch_product: false,
+                            },
+                            context: self.currentState
+                        }).then(function(product_dict) {
+                            res.lineDescription.product_move_qty = product_dict.product_move_qty;
+                            res.lineDescription.move_product_uom = product_dict.move_product_uom;
+                            res.lineDescription.x_studio_scan_descriptor = product_dict.x_studio_scan_descriptor;
+                            res.lineDescription.x_studio_scan_desc_2_1 = product_dict.x_studio_scan_desc_2_1;
+                            handle_line();
+                            return Promise.resolve({ linesActions: linesActions });
+                        });
+                    }
                     handle_line();
 
                 } else {
@@ -628,10 +693,69 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                     }
                     linesActions.push([self.linesWidget.incrementProduct, [res.id || res.virtualId, 1, self.actionParams.model]]);
                     linesActions.push([self.linesWidget.setLotName, [res.id || res.virtualId, barcode]]);
+                    linesActions.push([self.linesWidget.setlotinformation, [res.id || res.virtualId, res.lineDescription.cell, res.lineDescription.iccid, res.lineDescription.imei, res.lineDescription.mac_address, res.lineDescription.product_move_qty, res.lineDescription.move_product_uom]]);
                 }
                 return Promise.resolve({linesActions: linesActions});
             });
         },
 
+        _findCandidateLineToIncrement: function (params) {
+        const values = this._super(params);
+        if (values)
+        { 
+            values.cell = params.cell;
+            values.iccid = params.iccid;
+            values.imei = params.imei;
+            values.mac_address = params.mac_address;
+        }
+        return values
+    },
+
+    });
+
+    var ClientAction = PickingClientAction.include({
+        _makeNewLine: function (params) {
+            var virtualId = this._getNewVirtualId();
+            var currentPage = this.pages[this.currentPageIndex];
+            var newLine = {
+                'picking_id': this.currentState.id,
+                'product_id': {
+                    'id': params.product.id,
+                    'display_name': params.product.display_name,
+                    'barcode': params.barcode,
+                    'tracking': params.product.tracking,
+                },
+                'product_barcode': params.barcode,
+                'display_name': params.product.display_name,
+                'product_uom_qty': 0,
+                'product_uom_id': params.product.uom_id,
+                'qty_done': params.qty_done,
+                'location_id': {
+                    'id': currentPage.location_id,
+                    'display_name': currentPage.location_name,
+                },
+                'location_dest_id': {
+                    'id': currentPage.location_dest_id,
+                    'display_name': currentPage.location_dest_name,
+                },
+                'package_id': params.package_id,
+                'result_package_id': params.result_package_id,
+                'owner_id': params.owner_id,
+                'state': 'assigned',
+                'reference': this.name,
+                'virtual_id': virtualId,
+                'owner_id': params.owner_id,
+                'cell': (params.cell ? params.cell : ''),
+                'iccid': (params.iccid ? params.iccid : ''),
+                'imei': (params.imei ? params.imei : ''),
+                'mac_address': (params.mac_address ? params.mac_address : ''),
+                'product_move_qty': params.product_move_qty,
+                'move_product_uom': params.move_product_uom,
+                'picking_type_code': this.currentState.picking_type_code,
+                'x_studio_scan_descriptor': (params.x_studio_scan_descriptor ? params.x_studio_scan_descriptor : ''),
+                'x_studio_scan_desc_2_1': (params.x_studio_scan_desc_2_1 ? params.x_studio_scan_desc_2_1 : '')
+            };
+            return newLine;
+        },
     });
 });
