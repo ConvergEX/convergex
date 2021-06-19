@@ -6,7 +6,7 @@
         </div>
     </t>
     <t t-extend="stock_barcode_lines_template">
-        <t t-jquery="g" t-operation="replace">
+        <t t-jquery="div[name='quantity'] i" t-operation="replace">
             <span><b>Done Qty: &amp;nbsp;</b></span>
         </t>
         <t t-jquery="div[name='quantity']" t-operation="before">
