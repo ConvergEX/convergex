@@ -32,14 +32,14 @@ class StockPicking(models.Model):
         move_line_ids_fields.append('move_id')
         return move_line_ids_fields
 
+
 class Product(models.Model):
     _inherit = 'product.product'
 
     def read_product_and_package(self, lot_ids=False, fetch_product=False):
         res = super(Product, self).read_product_and_package(lot_ids=lot_ids, fetch_product=fetch_product)
-        picking_id = self._context.get('id')
-        if picking_id:
-            picking_id = self.env['stock.picking'].browse(picking_id)
+        if self._context.get('id'):
+            picking_id = self.env['stock.picking'].browse(self._context.get('id'))
             move_id = picking_id.move_ids_without_package.filtered(lambda ml: ml.product_id.id == self.id)
             res['product_move_qty'] = move_id.product_uom_qty
             res['move_product_uom'] = move_id.product_uom.name
