@@ -11,9 +11,13 @@
         </t>
         <t t-jquery="div[name='quantity']" t-operation="before">
             <t t-if="line.product_move_qty and line.picking_type_code == 'outgoing'">
-                Order Qty: &amp;nbsp;
-                <span class="d-inline-block text-left o_line_lot_product_qty" t-esc="line.product_move_qty"/>
-                <span class="o_line_lot_uom" t-esc="line.move_product_uom"/>
+                <div name="move_product_quantity">
+                    <span><b>Order Qty: &amp;nbsp;</b></span>
+                    <span t-attf-class="o_barcode_scanner_qty text-monospace badge #{' '}">
+                        <b><span class="o_line_lot_product_qty" t-esc="line.product_move_qty"/></b>
+                        <span class="o_line_lot_uom" t-esc="line.move_product_uom"/>
+                    </span>
+                </div>
             </t>
         </t>
         <t t-jquery="span.o_line_lot_name" t-operation="after">
