@@ -35,19 +35,8 @@
         </t>
     </t>
     <t t-extend="stock_barcode_lines_template">
-        <t t-jquery="div[name='quantity'] i" t-operation="replace">
-            <span><b>Done Qty: &amp;nbsp;</b></span>
-        </t>
-        <t t-jquery="div[name='quantity']" t-operation="before">
-            <t t-if="line.product_move_qty and line.picking_type_code == 'outgoing'">
-                <div name="move_product_quantity">
-                    <span><b>Order Qty: &amp;nbsp;</b></span>
-                    <span t-attf-class="o_barcode_scanner_qty text-monospace badge #{' '}">
-                        <b><span class="o_line_lot_product_qty" t-esc="line.product_move_qty"/></b>
-                        <span class="o_line_lot_uom" t-esc="line.move_product_uom"/>
-                    </span>
-                </div>
-            </t>
+        <t t-jquery="div[name='quantity']" t-operation="attributes">
+            <attribute name="t-if">line.product_id.tracking !== 'serial'</attribute>
         </t>
         <t t-jquery="span.o_line_lot_name" t-operation="after">
             <t t-if="line.picking_type_code == 'outgoing'">
