@@ -1,9 +1,38 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates id="template" xml:space="preserve">
     <t t-name="stock_bag_number_template">
-        <div class="bag_number_summary mt8" t-if="OperationType == 'outgoing'">
+        <div class="owner">
+            <i class="fa fa-fw fa-user-o" />Owner : <span t-esc="owner_name" />
+        </div>
+        <div class="bag_number_summary" t-if="OperationType == 'outgoing'">
             <i class="fa fa-shopping-bag" /> Bag # <span t-if="bagName" t-esc="bagName" />
         </div>
+    </t>
+    <t t-name="stock_move_lines_template">
+        <div class="table-responsive" t-if="OperationType == 'outgoing' and move_lines">
+            <table width="90%" class="table table-bordered">
+                <tbody>
+                    <tr style="background-color: #875A7B;color: white;">
+                        <th width="70%"> Product </th>
+                        <th class="text-center"> Demand </th>
+                    </tr>
+                    <tr t-foreach="move_lines" t-as="move_line">
+                        <td>
+                            <t t-esc="move_line.product_id[1]" />
+                        </td>
+                        <td class="text-center">
+                            <t t-esc="move_line.product_uom_qty" />
+                            <t t-esc="move_line.product_uom[1]" />
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </t>
+    <t t-extend="stock_barcode_lines_widget">
+        <t t-jquery="div.o_barcode_lines_header" t-operation="after">
+            <div class="o_barcode_moves"/>
+        </t>
     </t>
     <t t-extend="stock_barcode_lines_template">
         <t t-jquery="div[name='quantity'] i" t-operation="replace">

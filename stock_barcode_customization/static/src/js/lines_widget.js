@@ -21,8 +21,16 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
             var $pageBag = $(QWeb.render('stock_bag_number_template', {
                 bagName: this.__parentedParent.initialState.x_studio_bag_,
                 OperationType: this.__parentedParent.initialState.picking_type_code,
+                owner_name: this.__parentedParent.initialState.owner_name,
             }));
             $bag.append($pageBag);
+
+            var $moves = this.$el.filter('.o_barcode_moves');
+            var $move_lines = $(QWeb.render('stock_move_lines_template', {
+                move_lines: this.__parentedParent.initialState.move_lines,
+                OperationType: this.__parentedParent.initialState.picking_type_code,
+            }));
+            $moves.append($move_lines);
         },
 
         /**

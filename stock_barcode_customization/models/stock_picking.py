@@ -8,11 +8,17 @@ class StockPicking(models.Model):
     def _get_picking_fields_to_read(self):
         res = super(StockPicking, self)._get_picking_fields_to_read()
         res.append('x_studio_bag_')
+        res.append('move_lines')
         return res
 
     def get_barcode_view_state(self):
         pickings = super(StockPicking, self).get_barcode_view_state()
         for picking in pickings:
+            picking_id = self.browse(picking.get('id'))
+            partner_name = picking_id.partner_id.x_studio_parent_company.name if picking_id.partner_id.x_studio_parent_company else ''
+            x_studio_cost_centre = "[" + picking_id.x_studio_cost_centre + "] " if picking_id.x_studio_cost_centre else ''
+            picking['owner_name'] = x_studio_cost_centre + partner_name
+            picking['move_lines'] = self.env['stock.move'].browse(picking.pop('move_lines')).read(['product_id', 'product_uom_qty', 'product_uom'])
             for move_line_id in picking['move_line_ids']:
                 product_move_id = self.env['stock.move'].search([('id', '=', move_line_id.get('move_id')[0])])
                 move_line_id['product_move_qty'] = product_move_id.product_uom_qty
