@@ -9,7 +9,7 @@
     'support': 'ipredictitsolutions@gmail.com',
 
     'category': 'Inventory/Inventory Sale',
-    'version': '14.0.0.2.0',
+    'version': '14.0.0.3.0',
     'depends': ["stock_barcode"],
 
     'data': [

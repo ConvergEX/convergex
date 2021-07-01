@@ -586,7 +586,32 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                         errorMessage = _t('The scanned lot does not match an existing one.');
                         return Promise.reject(errorMessage);
                     }
-                    return getLotInfo(res);
+                    if (self.currentState.picking_type_code == 'outgoing') {
+                        return self._rpc({
+                            model: 'product.product',
+                            method: 'get_product_lot_info',
+                            args: [res[0].product_id[0]],
+                            kwargs: {
+                            lot_ids: res,
+                            fetch_product: false,
+                            },
+                            context: self.currentState
+                        }).then(function (message) {
+                            debugger;
+                            if (message) {
+                                self.do_warn(false, _t(message));
+                                return Promise.reject();
+                            }
+                            else
+                            {
+                                return getLotInfo(res);
+                            }
+                        });
+                    }
+                    else
+                    {
+                        return getLotInfo(res);
+                    }
                 });
             };
 
