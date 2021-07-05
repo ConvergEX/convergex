@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates id="template" xml:space="preserve">
     <t t-name="stock_bag_number_template">
-        <div class="owner">
+        <div class="owner" t-if="OperationType == 'outgoing'">
             <i class="fa fa-fw fa-user-o" />Owner : <span t-esc="owner_name" />
         </div>
         <div class="bag_number_summary" t-if="OperationType == 'outgoing'">

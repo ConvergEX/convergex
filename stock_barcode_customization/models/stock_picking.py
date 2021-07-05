@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-from odoo import api, models
+from odoo import api, models, _
+from odoo.exceptions import ValidationError
 
 
 class StockPicking(models.Model):
@@ -24,12 +25,14 @@ class StockPicking(models.Model):
                 move_line_id['product_move_qty'] = product_move_id.product_uom_qty
                 move_line_id['move_product_uom'] = product_move_id.product_uom.name
                 move_line_id['picking_type_code'] = picking['picking_type_code']
+                move_line_id['x_studio_scan_descriptor'] = product_move_id.product_id.x_studio_scan_descriptor
+                move_line_id['x_studio_scan_desc_2_1'] = product_move_id.product_id.x_studio_scan_desc_2_1
                 if move_line_id.get('lot_id'):
                     lot_id = self.env['stock.production.lot'].search([('id', '=', move_line_id.get('lot_id')[0])])
-                    move_line_id['cell'] = lot_id.x_studio_cell_
-                    move_line_id['iccid'] = lot_id.x_studio_iccid_
-                    move_line_id['imei'] = lot_id.x_studio_imei_
-                    move_line_id['mac_address'] = lot_id.x_studio_mac_address__1
+                    move_line_id['cell'] = lot_id.x_studio_cell_ if lot_id.x_studio_cell_ else ''
+                    move_line_id['iccid'] = lot_id.x_studio_iccid_ if lot_id.x_studio_iccid_ else ''
+                    move_line_id['imei'] = lot_id.x_studio_imei_ if lot_id.x_studio_imei_ else ''
+                    move_line_id['mac_address'] = lot_id.x_studio_mac_address__1 if lot_id.x_studio_mac_address__1 else ''
         return pickings
 
     @api.model
@@ -39,6 +42,36 @@ class StockPicking(models.Model):
         return move_line_ids_fields
 
 
+class StockMoveLine(models.Model):
+    _inherit = 'stock.move.line'
+
+    @api.model
+    def create(self, values):
+        picking_id = self.env['stock.picking'].browse(values.get('picking_id'))
+        if picking_id.move_ids_without_package and self._context.get('form_view_ref') and picking_id.picking_type_id.code == 'outgoing':
+            move_id = picking_id.move_ids_without_package.filtered(
+                lambda ml: ml.product_id.id == values.get('product_id'))
+            qty_done = 0
+            if not move_id:
+                raise ValidationError(_('You can not add this product.'))
+            if values.get('qty_done'):
+                qty_done = move_id.quantity_done + values.get('qty_done')
+            if qty_done > move_id.product_uom_qty:
+                raise ValidationError(
+                    _('You can not add more than %s quantity of %s.') % (move_id.product_uom_qty, self.move_id.product_id.display_name))
+        return super(StockMoveLine, self).create(values)
+
+    def write(self, vals):
+        if vals.get('qty_done') and self._context.get('form_view_ref') and self.move_id.picking_type_id.code == 'outgoing':
+            qty_done = 0
+            if vals.get('qty_done'):
+                qty_done = self.move_id.quantity_done + vals.get('qty_done')
+            if qty_done > self.move_id.product_uom_qty:
+                raise ValidationError(
+                    _('You can not add more than %s quantity of %s.') % (self.move_id.product_uom_qty, self.move_id.product_id.display_name))
+        return super(StockMoveLine, self).write(vals)
+
+
 class Product(models.Model):
     _inherit = 'product.product'
 
@@ -46,16 +79,21 @@ class Product(models.Model):
         res = super(Product, self).read_product_and_package(lot_ids=lot_ids, fetch_product=fetch_product)
         if self._context.get('id'):
             picking_id = self.env['stock.picking'].browse(self._context.get('id'))
-            move_id = picking_id.move_ids_without_package.filtered(lambda ml: ml.product_id.id == self.id)
-            res['product_move_qty'] = move_id.product_uom_qty
-            res['move_product_uom'] = move_id.product_uom.name
-            res['x_studio_scan_descriptor'] = self.x_studio_scan_descriptor
-            res['x_studio_scan_desc_2_1'] = self.x_studio_scan_desc_2_1
+            if picking_id and picking_id.picking_type_id.code == 'outgoing':
+                move_id = picking_id.move_ids_without_package.filtered(lambda ml: ml.product_id.id == self.id)
+                res['move_id'] = move_id.id
+                res['product_move_qty'] = move_id.product_uom_qty
+                res['move_product_uom'] = move_id.product_uom.name
+                res['x_studio_scan_descriptor'] = self.x_studio_scan_descriptor
+                res['x_studio_scan_desc_2_1'] = self.x_studio_scan_desc_2_1
+                res['message'] = False
+                if lot_ids:
+                    res['message'] = self.get_product_lot_info(lot_ids, fetch_product)
         return res
 
     def get_product_lot_info(self, lot_ids=False, fetch_product=False):
         for lot_id in lot_ids:
-            lot_id = self.env['stock.production.lot'].browse(lot_id.get('id'))
+            lot_id = self.env['stock.production.lot'].browse(lot_id)
             if self.x_studio_scan_descriptor == 'ICCID #' and not lot_id.x_studio_iccid_:
                 return 'Missing Data: ICCID is not set in scanned Serial number.'
             if self.x_studio_scan_descriptor == 'IMEI #' and not lot_id.x_studio_imei_:

@@ -321,6 +321,37 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                     },
                     context: self.currentState
                 });
+                if (self.currentState.picking_type_code == 'outgoing') {
+                    debugger;
+                    if (self.currentState.move_lines.length == 0)
+                    {
+                        errorMessage = _t('You can not add product out of the order products.');
+                        return Promise.reject(errorMessage);
+                    }
+                    if (!prom.move_id)
+                    {
+                        errorMessage = _t('You can not add product out of the order products.');
+                        return Promise.reject(errorMessage);
+
+                    }
+                }
+                var done_qty = 0
+                var product_move_qty = 0
+                for (const lines of self.pages[0].lines) {
+                    if (lines.product_id.id == product.id){
+                        done_qty += lines.qty_done
+                    }
+                }
+                for (const lines of self.currentState.move_lines){
+                    if (lines.product_id[0] == product.id){
+                        product_move_qty = lines.product_uom_qty
+                    }
+
+                }
+                if (done_qty >= product_move_qty && self.currentState.picking_type_code == 'outgoing' && self.currentState.move_lines) {
+                        var errorMessage = _t('You can not add more quantity then the demand quantity.');
+                        return Promise.reject(errorMessage);
+                }
                 if (product.tracking !== 'none' && self.requireLotNumber) {
                     this.currentStep = 'lot';
                 }
@@ -587,23 +618,27 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                         return Promise.reject(errorMessage);
                     }
                     if (self.currentState.picking_type_code == 'outgoing') {
+                        debugger;
+                        var lot_ids = _.map(res, function (lot) {
+                            return lot.id;
+                        });
                         return self._rpc({
                             model: 'product.product',
-                            method: 'get_product_lot_info',
+                            method: 'read_product_and_package',
                             args: [res[0].product_id[0]],
                             kwargs: {
-                            lot_ids: res,
+                            lot_ids: lot_ids,
                             fetch_product: false,
                             },
                             context: self.currentState
-                        }).then(function (message) {
-                            debugger;
-                            if (message) {
-                                self.do_warn(false, _t(message));
+                        }).then(function (product_dict) {
+                            if (!product_dict.move_id) {
+                                self.do_warn(false, _t('You can not add product out of the order products'));
                                 return Promise.reject();
-                            }
-                            else
-                            {
+                            } else if (product_dict.message) {
+                                self.do_warn(false, _t(product_dict.message));
+                                return Promise.reject();
+                            } else {
                                 return getLotInfo(res);
                             }
                         });
@@ -657,13 +692,32 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                 var product = lot_info.product;
                 if (product.tracking === 'serial' && self._lot_name_used(product, barcode)){
                     errorMessage = _t('The scanned serial number is already used.');
-                    return Promise.reject(errorMessage);
+                    self.do_warn(false, _t(errorMessage));
+                    return Promise.reject();
                 }
                 if (!self.currentState.x_studio_bag_ && self.currentState.picking_type_code == 'outgoing') {
                     errorMessage = _t('Please Scan Bag first before adding product.');
                     if (lot_info) {
                         return Promise.reject(errorMessage);
                     }
+                }
+                var done_qty = 0
+                var product_move_qty = 0
+                for (const lines of self.pages[0].lines) {
+                    if (lines.product_id.id == product.id){
+                        done_qty += lines.qty_done
+                    }
+                }
+                for (const lines of self.currentState.move_lines){
+                    if (lines.product_id[0] == product.id){
+                        product_move_qty = lines.product_uom_qty
+                    }
+
+                }
+                if (done_qty >= product_move_qty && self.currentState.picking_type_code == 'outgoing' && self.currentState.move_lines) {
+                    var errorMessage = _t('You can not add more quantity then the demand quantity.');
+                    self.do_warn(false, errorMessage);
+                    return Promise.reject();
                 }
                 var res = self._incrementLines({
                     'product': product,
@@ -790,5 +844,29 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
             };
             return newLine;
         },
+        _onIncrementLine: function (ev) {
+            ev.stopPropagation();
+            const id = ev.data.id;
+            const qty = ev.data.qty || 1;
+            const line = this._getLines(this.currentState).find(l => id === (l.id || l.virtual_id));
+            var done_qty = 0
+            for (const lines of this.pages[0].lines) {
+                if (lines.product_id.id == line.product_id.id){
+                    done_qty += lines.qty_done
+                }
+            }
+            if (done_qty >= line.product_move_qty  && this.currentState.picking_type_code == 'outgoing' && this.currentState.move_lines) {
+                var errorMessage = _t('You can not add more quantity');
+                this.do_warn(false, errorMessage);
+                return Promise.reject(errorMessage);
+            }
+            line[this._getQuantityField()] += qty;
+           // increment quantity and avoid insignificant digits
+            // Add the line like if user scanned it to be able to find it if user
+            // will scan the same product after.
+            this.scannedLines.push(id);
+            this.linesWidget.incrementProduct(id, qty, this.actionParams.model, true);
+        },
+
     });
 });
