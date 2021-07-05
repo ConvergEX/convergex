@@ -6,6 +6,7 @@ from odoo.exceptions import UserError
 
 class UpdateSerialNumberWizard(models.TransientModel):
     _name = 'update.serial.number.wizard'
+    _description = "Update serial number from move line"
 
     serial_number = fields.Char("Serial Number")
 
