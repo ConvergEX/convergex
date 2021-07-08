@@ -19,6 +19,7 @@ class StockPicking(models.Model):
             partner_name = picking_id.partner_id.x_studio_parent_company.name if picking_id.partner_id.x_studio_parent_company else ''
             x_studio_cost_centre = "[" + picking_id.x_studio_cost_centre + "] " if picking_id.x_studio_cost_centre else ''
             picking['owner_name'] = x_studio_cost_centre + partner_name
+            picking['owner_id'] = picking_id.partner_id.x_studio_parent_company.id
             picking['move_lines'] = self.env['stock.move'].browse(picking.pop('move_lines')).read(['product_id', 'product_uom_qty', 'product_uom'])
             for move_line_id in picking['move_line_ids']:
                 product_move_id = self.env['stock.move'].search([('id', '=', move_line_id.get('move_id')[0])])
@@ -102,4 +103,11 @@ class Product(models.Model):
                 return 'Missing Data: MAC Address is not set in scanned Serial number.'
             if self.x_studio_scan_desc_2_1 == 'Cell #' and not lot_id.x_studio_cell_:
                 return 'Missing Data: Cell is not set in scanned Serial number.'
+            quant_id = self.env['stock.quant'].search([('lot_id', '=', lot_id.id), ('location_id.usage', '=', 'internal'), ('product_id', '=', self.id)], limit=1)
+            owner_group = self.user_has_groups('stock.group_tracking_owner')
+            if quant_id and owner_group:
+                if not quant_id.owner_id:
+                    return 'Missing Data: Owner is not set in scanned Serial number.'
+                if self._context.get('owner_id') and self._context.get('owner_id') != quant_id.owner_id.id:
+                    return 'Missing Data: This Owner can not set in scanned Serial number.'
         return False

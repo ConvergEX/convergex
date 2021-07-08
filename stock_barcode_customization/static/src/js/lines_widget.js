@@ -22,6 +22,7 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                 bagName: this.__parentedParent.initialState.x_studio_bag_,
                 OperationType: this.__parentedParent.initialState.picking_type_code,
                 owner_name: this.__parentedParent.initialState.owner_name,
+                owner_id: this.__parentedParent.initialState.owner_id,
             }));
             $bag.append($pageBag);
 
@@ -92,7 +93,7 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
             }
         },
 
-        setlotinformation: function(id_or_virtual_id, cell, iccid, imei, mac_address, product_move_qty, move_product_uom) {
+        setlotinformation: function(id_or_virtual_id, cell, iccid, imei, mac_address, product_move_qty, move_product_uom, owner_id) {
             var $line = this.$("[data-id='" + id_or_virtual_id + "']");
             var $o_line_lot_iccid = $line.find('.o_line_lot_iccid');
             var o_line_lot_imei = $line.find('.o_line_lot_imei');
@@ -100,6 +101,7 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
             var o_line_lot_cell = $line.find('.o_line_lot_cell');
             var o_line_lot_product_qty = $line.find('.o_line_lot_product_qty');
             var o_line_lot_uom = $line.find('.o_line_lot_uom');
+            var o_barcode_line_title = $line.find('.o_barcode_line_title')
             if (!$o_line_lot_iccid.text()) {
                 var $span = $('<span>', {class: 'o_line_lot_iccid', text: (iccid ? iccid : '')});
                 $o_line_lot_iccid.replaceWith($span);
@@ -118,6 +120,13 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
             if (!o_line_lot_cell.text()) {
                 var $span = $('<span>', {class: 'o_line_lot_cell', text: (cell ? cell : '')});
                 o_line_lot_cell.replaceWith($span);
+            }
+            if (owner_id){
+                var owner_div = document.createElement('div');
+                owner_div.innerHTML = '\n' +
+                    '    <i class="fa fa-fw fa-user-o"></i>' +
+                    '       <span>' + owner_id[1] + '</span>\n'
+                o_barcode_line_title.after(owner_div);
             }
         },
     });
@@ -322,7 +331,6 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                     context: self.currentState
                 });
                 if (self.currentState.picking_type_code == 'outgoing') {
-                    debugger;
                     if (self.currentState.move_lines.length == 0)
                     {
                         errorMessage = _t('You can not add product out of the order products.');
@@ -614,11 +622,15 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                 }
                 return def.then(function (res) {
                     if (! res.length) {
+                        product = getProductFromLastScannedLine();
+                        if (!product && self.currentState.x_studio_bag_)
+                        {
+                            self.do_warn(false, _t('The scanned lot does not match an existing one.'));
+                        }
                         errorMessage = _t('The scanned lot does not match an existing one.');
                         return Promise.reject(errorMessage);
                     }
-                    if (self.currentState.picking_type_code == 'outgoing') {
-                        debugger;
+                    if (self.currentState.picking_type_code == 'outgoing' && self.currentState.x_studio_bag_) {
                         var lot_ids = _.map(res, function (lot) {
                             return lot.id;
                         });
@@ -692,8 +704,7 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                 var product = lot_info.product;
                 if (product.tracking === 'serial' && self._lot_name_used(product, barcode)){
                     errorMessage = _t('The scanned serial number is already used.');
-                    self.do_warn(false, _t(errorMessage));
-                    return Promise.reject();
+                    return Promise.reject(errorMessage);
                 }
                 if (!self.currentState.x_studio_bag_ && self.currentState.picking_type_code == 'outgoing') {
                     errorMessage = _t('Please Scan Bag first before adding product.');
@@ -780,7 +791,7 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                     }
                     linesActions.push([self.linesWidget.incrementProduct, [res.id || res.virtualId, 1, self.actionParams.model]]);
                     linesActions.push([self.linesWidget.setLotName, [res.id || res.virtualId, barcode]]);
-                    linesActions.push([self.linesWidget.setlotinformation, [res.id || res.virtualId, res.lineDescription.cell, res.lineDescription.iccid, res.lineDescription.imei, res.lineDescription.mac_address, res.lineDescription.product_move_qty, res.lineDescription.move_product_uom]]);
+                    linesActions.push([self.linesWidget.setlotinformation, [res.id || res.virtualId, res.lineDescription.cell, res.lineDescription.iccid, res.lineDescription.imei, res.lineDescription.mac_address, res.lineDescription.product_move_qty, res.lineDescription.move_product_uom, res.lineDescription.owner_id]]);
                 }
                 return Promise.resolve({linesActions: linesActions});
             });
@@ -794,6 +805,7 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
             values.iccid = params.iccid;
             values.imei = params.imei;
             values.mac_address = params.mac_address;
+            values.owner_id = params.owner_id;
         }
         return values
     },
