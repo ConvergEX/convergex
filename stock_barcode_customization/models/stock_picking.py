@@ -115,12 +115,13 @@ class Product(models.Model):
             if self.x_studio_scan_desc_2_1 == 'Cell #' and not lot_id.x_studio_cell_:
                 return 'Missing Data: Cell is not set in scanned Serial number.'
             quant_id = self.env['stock.quant'].search([('lot_id', '=', lot_id.id), ('location_id.usage', '=', 'internal'), ('product_id', '=', self.id)], limit=1)
-            if not self._context.get('owner_id'):
+            owner_id = self._context.get('owner_id')
+            if not owner_id:
                 return 'Serial number does not belong to the current owner.'
             owner_group = self.user_has_groups('stock.group_tracking_owner')
             if quant_id and owner_group:
                 if not quant_id.owner_id:
                     return 'Serial number does not belong to the current owner.'
-                if self._context.get('owner_id') and self._context.get('owner_id') != quant_id.owner_id.id:
+                if owner_id not in [quant_id.owner_id.id, quant_id.owner_id.x_studio_parent_company.id]:
                     return 'Serial number does not belong to the current owner.'
         return False
