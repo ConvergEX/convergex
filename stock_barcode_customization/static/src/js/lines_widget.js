@@ -644,11 +644,11 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                             },
                             context: self.currentState
                         }).then(function (product_dict) {
-                            if (!product_dict.move_id) {
-                                self.do_warn(false, _t('You can not add product out of the order products'));
-                                return Promise.reject();
-                            } else if (product_dict.message) {
+                            if (product_dict.message) {
                                 self.do_warn(false, _t(product_dict.message));
+                                return Promise.reject();
+                            } else if (!product_dict.move_id) {
+                                self.do_warn(false, _t('You can not add product out of the order products'));
                                 return Promise.reject();
                             } else {
                                 return getLotInfo(res);
