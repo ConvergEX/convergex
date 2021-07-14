@@ -77,19 +77,30 @@ class Product(models.Model):
     _inherit = 'product.product'
 
     def read_product_and_package(self, lot_ids=False, fetch_product=False):
-        res = super(Product, self).read_product_and_package(lot_ids=lot_ids, fetch_product=fetch_product)
+        res = {}
+        try:
+            res = super(Product, self).read_product_and_package(lot_ids=lot_ids, fetch_product=fetch_product)
+        except:
+            if self._context.get('id'):
+                picking_id = self.env['stock.picking'].browse(self._context.get('id'))
+                if picking_id and picking_id.picking_type_id.code == 'outgoing':
+                    move_id = picking_id.move_ids_without_package.filtered(lambda ml: ml.product_id.id == self.id)
+                    res['move_id'] = move_id[0].id
+                    res['message'] = 'No stock available in Picking location'
+                    return res
         if self._context.get('id'):
             picking_id = self.env['stock.picking'].browse(self._context.get('id'))
             if picking_id and picking_id.picking_type_id.code == 'outgoing':
                 move_id = picking_id.move_ids_without_package.filtered(lambda ml: ml.product_id.id == self.id)
-                res['move_id'] = move_id.id
-                res['product_move_qty'] = move_id.product_uom_qty
-                res['move_product_uom'] = move_id.product_uom.name
-                res['x_studio_scan_descriptor'] = self.x_studio_scan_descriptor
-                res['x_studio_scan_desc_2_1'] = self.x_studio_scan_desc_2_1
-                res['message'] = False
-                if lot_ids:
-                    res['message'] = self.get_product_lot_info(lot_ids, fetch_product)
+                if move_id:
+                    res['move_id'] = move_id[0].id
+                    res['product_move_qty'] = move_id.product_uom_qty
+                    res['move_product_uom'] = move_id.product_uom.name
+                    res['x_studio_scan_descriptor'] = self.x_studio_scan_descriptor
+                    res['x_studio_scan_desc_2_1'] = self.x_studio_scan_desc_2_1
+                    res['message'] = False
+                    if lot_ids:
+                        res['message'] = self.get_product_lot_info(lot_ids, fetch_product)
         return res
 
     def get_product_lot_info(self, lot_ids=False, fetch_product=False):
@@ -104,10 +115,12 @@ class Product(models.Model):
             if self.x_studio_scan_desc_2_1 == 'Cell #' and not lot_id.x_studio_cell_:
                 return 'Missing Data: Cell is not set in scanned Serial number.'
             quant_id = self.env['stock.quant'].search([('lot_id', '=', lot_id.id), ('location_id.usage', '=', 'internal'), ('product_id', '=', self.id)], limit=1)
+            if not self._context.get('owner_id'):
+                return 'Serial number does not belong to the current owner.'
             owner_group = self.user_has_groups('stock.group_tracking_owner')
             if quant_id and owner_group:
                 if not quant_id.owner_id:
-                    return 'Missing Data: Owner is not set in scanned Serial number.'
+                    return 'Serial number does not belong to the current owner.'
                 if self._context.get('owner_id') and self._context.get('owner_id') != quant_id.owner_id.id:
-                    return 'Missing Data: This Owner can not set in scanned Serial number.'
+                    return 'Serial number does not belong to the current owner.'
         return False
