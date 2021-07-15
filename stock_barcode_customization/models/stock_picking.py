@@ -105,6 +105,7 @@ class Product(models.Model):
 
     def get_product_lot_info(self, lot_ids=False, fetch_product=False):
         for lot_id in lot_ids:
+            lot_id = self.env['stock.production.lot'].browse(lot_id)
             quant_id = self.env['stock.quant'].search([('lot_id', '=', lot_id.id), ('location_id.usage', '=', 'internal'), ('product_id', '=', self.id)], limit=1)
             owner_id = self._context.get('owner_id')
             if not owner_id:
@@ -115,7 +116,6 @@ class Product(models.Model):
                     return 'Serial number does not belong to the current owner.'
                 if owner_id not in [quant_id.owner_id.id, quant_id.owner_id.x_studio_parent_company.id]:
                     return 'Serial number does not belong to the current owner.'
-            lot_id = self.env['stock.production.lot'].browse(lot_id)
             if self.x_studio_scan_descriptor == 'ICCID #' and not lot_id.x_studio_iccid_:
                 return 'Missing Data: ICCID is not set in scanned Serial number.'
             if self.x_studio_scan_descriptor == 'IMEI #' and not lot_id.x_studio_imei_:
