@@ -81,13 +81,8 @@ class Product(models.Model):
         try:
             res = super(Product, self).read_product_and_package(lot_ids=lot_ids, fetch_product=fetch_product)
         except:
-            if self._context.get('id'):
-                picking_id = self.env['stock.picking'].browse(self._context.get('id'))
-                if picking_id and picking_id.picking_type_id.code == 'outgoing':
-                    move_id = picking_id.move_ids_without_package.filtered(lambda ml: ml.product_id.id == self.id)
-                    res['move_id'] = move_id[0].id
-                    res['message'] = 'No stock available in Picking location'
-                    return res
+            res['message'] = 'No stock available in Picking location'
+            return res
         if self._context.get('id'):
             picking_id = self.env['stock.picking'].browse(self._context.get('id'))
             if picking_id and picking_id.picking_type_id.code == 'outgoing':
