@@ -81,7 +81,7 @@ class Product(models.Model):
         try:
             res = super(Product, self).read_product_and_package(lot_ids=lot_ids, fetch_product=fetch_product)
         except:
-            res['message'] = 'No stock available in Picking location'
+            res['message'] = 'No stock available in Picking location or The serial number has already been used'
             return res
         if self._context.get('id'):
             picking_id = self.env['stock.picking'].browse(self._context.get('id'))
@@ -102,6 +102,8 @@ class Product(models.Model):
         for lot_id in lot_ids:
             lot_id = self.env['stock.production.lot'].browse(lot_id)
             quant_id = self.env['stock.quant'].search([('lot_id', '=', lot_id.id), ('location_id.usage', '=', 'internal'), ('product_id', '=', self.id)], limit=1)
+            if quant_id and quant_id.quantity < 1:
+                return (_('The serial number has already been assigned: \n Product: %s, Serial Number: %s') % (quant_id.product_id.display_name, quant_id.lot_id.name))
             owner_id = self._context.get('owner_id')
             if not owner_id:
                 return 'Serial number does not belong to the current owner.'
