@@ -42,6 +42,21 @@ class StockPicking(models.Model):
         move_line_ids_fields.append('move_id')
         return move_line_ids_fields
 
+    def open_barcode_picking(self):
+        picking_id = self.search([('state', 'in', ('assigned', 'confirmed')), ('picking_type_id', '=', self.picking_type_id.id)], order="id", limit=1)
+        action = self.env["ir.actions.actions"]._for_xml_id("stock_barcode.stock_picking_action_kanban")
+        action = {'stock_action': action}
+        if picking_id:
+            action = self.env["ir.actions.actions"]._for_xml_id("stock_barcode.stock_barcode_picking_client_action")
+            params = {
+                'model': 'stock.picking',
+                'picking_id': picking_id.id,
+            }
+            action = dict(action, target='fullscreen', params=params)
+            action['context'] = {'active_id': picking_id.id}
+            action = {'action': action}
+        return action
+
 
 class StockMoveLine(models.Model):
     _inherit = 'stock.move.line'

@@ -4,6 +4,7 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
     var LinesWidget = require('stock_barcode.LinesWidget');
     var ClientAction = require('stock_barcode.ClientAction');
     var PickingClientAction = require('stock_barcode.picking_client_action');
+    var ActionManager = require('web.ActionManager');
     var core = require('web.core');
     var QWeb = core.qweb;
 
@@ -812,6 +813,16 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
 
     });
 
+    ActionManager.include({
+        custom_events: _.extend({}, ActionManager.prototype.custom_events, {
+            get_stock_picking: '_onStock_picking',
+        }),
+
+        _onStock_picking: function(ev) {
+            this._restoreController(ev.data.controllerID);
+        },
+    });
+
     var ClientAction = PickingClientAction.include({
         _makeNewLine: function (params) {
             var virtualId = this._getNewVirtualId();
@@ -843,7 +854,6 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                 'state': 'assigned',
                 'reference': this.name,
                 'virtual_id': virtualId,
-                'owner_id': params.owner_id,
                 'cell': (params.cell ? params.cell : ''),
                 'iccid': (params.iccid ? params.iccid : ''),
                 'imei': (params.imei ? params.imei : ''),
@@ -879,6 +889,75 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
             this.scannedLines.push(id);
             this.linesWidget.incrementProduct(id, qty, this.actionParams.model, true);
         },
+        _validate: function(context) {
+            const self = this;
+            this.mutex.exec(function() {
+                const successCallback = function() {
+                    self.displayNotification({
+                        message: _t("The transfer has been validated"),
+                        type: 'success',
+                    });
+                    if (self.currentState.picking_type_code == 'outgoing') {
+                        self._rpc({
+                            model: 'stock.picking',
+                            method: 'open_barcode_picking',
+                            args: [
+                                [self.actionParams.id]
+                            ],
+                        }).then((result) => {
+                            if (result.action) {
+                                self.do_action(result.action);
+                            } else {
+                                var conterllerId = false
+                                for (var action in self.actionManager.actions) {
+                                    if (self.actionManager.actions[action]["id"] == result.stock_action.id) {
+                                        conterllerId = self.actionManager.actions[action]["controllerID"]
+                                    }
+                                }
+                                if (conterllerId) {
+                                    self.trigger_up('get_stock_picking', {
+                                        controllerID: conterllerId,
+                                    });
+                                } else {
+                                    self.do_action('stock_barcode.stock_picking_type_action_kanban', {
+                                        clear_breadcrumbs: true,
+                                    });
 
+                                }
+                            }
+                        });
+                    }
+                    else
+                    {
+                        self.trigger_up('exit');
+                    }
+                };
+                const exitCallback = function(infos) {
+                    if ((infos === undefined || !infos.special) && this.dialog.$modal.is(':visible')) {
+                        successCallback();
+                    }
+                    core.bus.on('barcode_scanned', self, self._onBarcodeScannedHandler);
+                };
+
+                return self._rpc({
+                    model: self.actionParams.model,
+                    method: self.methods.validate,
+                    context: context || {},
+                    args: [
+                        [self.currentState.id]
+                    ],
+                }).then((res) => {
+                    if (_.isObject(res)) {
+                        const options = {
+                            on_close: exitCallback,
+                        };
+                        core.bus.off('barcode_scanned', self, self._onBarcodeScannedHandler);
+                        return self.do_action(res, options);
+                    } else {
+                        return successCallback();
+                    }
+                });
+            });
+        },
     });
 });
