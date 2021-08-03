@@ -5,6 +5,7 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
     var ClientAction = require('stock_barcode.ClientAction');
     var PickingClientAction = require('stock_barcode.picking_client_action');
     var ActionManager = require('web.ActionManager');
+    var Stock = require('stock_barcode.HeaderWidget');
     var core = require('web.core');
     var QWeb = core.qweb;
 
@@ -902,7 +903,7 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                             model: 'stock.picking',
                             method: 'open_barcode_picking',
                             args: [
-                                [self.actionParams.id]
+                                [self.actionParams.id], true
                             ],
                         }).then((result) => {
                             if (result.action) {
@@ -960,4 +961,40 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
             });
         },
     });
+
+    Stock.include({
+        _onClickExit: function(ev) {
+            self = this.__parentedParent
+            ev.stopPropagation();
+            self._rpc({
+                model: 'stock.picking',
+                method: 'open_barcode_picking',
+                args: [
+                    [self.actionParams.id], false
+                ],
+            }).then((result) => {
+                if (result.action) {
+                    self.do_action(result.action);
+                } else {
+                    var conterllerId = false
+                    for (var action in self.actionManager.actions) {
+                        if (self.actionManager.actions[action]["id"] == result.stock_action.id) {
+                            conterllerId = self.actionManager.actions[action]["controllerID"]
+                        }
+                    }
+                    if (conterllerId) {
+                        self.trigger_up('get_stock_picking', {
+                            controllerID: conterllerId,
+                        });
+                    } else {
+                        self.do_action('stock_barcode.stock_picking_type_action_kanban', {
+                            clear_breadcrumbs: true,
+                        });
+
+                    }
+                }
+            });
+        },
+    });
+
 });
