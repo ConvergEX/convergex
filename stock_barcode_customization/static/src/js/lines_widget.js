@@ -25,6 +25,8 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                 OperationType: this.__parentedParent.initialState.picking_type_code,
                 owner_name: this.__parentedParent.initialState.owner_name,
                 owner_id: this.__parentedParent.initialState.owner_id,
+                waybill: this.__parentedParent.initialState.x_studio_waybill_,
+                waybill_url: this.__parentedParent.initialState.x_studio_waybill_url,
             }));
             $bag.append($pageBag);
 

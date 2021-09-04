@@ -9,7 +9,7 @@
     'support': 'ipredictitsolutions@gmail.com',
 
     'category': 'Inventory/Inventory Sale',
-    'version': '14.0.0.3.0',
+    'version': '14.0.0.5.0',
     'depends': ["stock_barcode"],
 
     'data': [
@@ -60,3 +60,14 @@
 # 3.3 Once an order has been confirmed it will have certain products and certain quantities as the initial demand By default, Odoo allows more quantities to be scanned than the initial order
 # Prerence is that once an order has been confirmed, one should only be able to scan the products and quantities on the initial demand i.e. kind of locking the order of some sort
 # 3.4 Check for owner if owner is not set or not match do not add line and show warning
+
+# 14.0.0.4.0
+# --------------
+# Requirement #4
+# Open next picking of selected operation type instead of picking kanban view
+
+# 14.0.0.4.0
+# --------------
+# Requirement #5
+# Add extra fields on bar code screen way bill and way bill URL with click able link
+

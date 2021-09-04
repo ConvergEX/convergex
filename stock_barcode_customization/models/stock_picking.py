@@ -10,6 +10,8 @@ class StockPicking(models.Model):
         res = super(StockPicking, self)._get_picking_fields_to_read()
         res.append('x_studio_bag_')
         res.append('move_lines')
+        res.append('x_studio_waybill_')
+        res.append('x_studio_waybill_url')
         return res
 
     def get_barcode_view_state(self):

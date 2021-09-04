@@ -7,6 +7,12 @@
         <div class="bag_number_summary" t-if="OperationType == 'outgoing'">
             <i class="fa fa-shopping-bag" /> Bag # <span t-if="bagName" t-esc="bagName" />
         </div>
+        <div class="way_bill_summary" t-if="OperationType == 'outgoing'">
+            <i class="fa fa-pencil-square-o" /> Waybill # <span t-if="waybill" t-esc="waybill" />
+        </div>
+        <div class="way_bill_url_summary" t-if="OperationType == 'outgoing'">
+            <i class="fa fa-link" /> Waybill URL # <a t-if="waybill_url" t-att-href="waybill_url" style="color:#FFFFFF;" target="_blank"><t t-esc="waybill_url"/></a>
+        </div>
     </t>
     <t t-name="stock_move_lines_template">
         <div class="table-responsive" t-if="OperationType == 'outgoing' and move_lines">
