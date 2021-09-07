@@ -892,6 +892,7 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
             this.scannedLines.push(id);
             this.linesWidget.incrementProduct(id, qty, this.actionParams.model, true);
         },
+
         _validate: function(context) {
             const self = this;
             this.mutex.exec(function() {
@@ -942,23 +943,25 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                     core.bus.on('barcode_scanned', self, self._onBarcodeScannedHandler);
                 };
 
-                return self._rpc({
-                    model: self.actionParams.model,
-                    method: self.methods.validate,
-                    context: context || {},
-                    args: [
-                        [self.currentState.id]
-                    ],
-                }).then((res) => {
-                    if (_.isObject(res)) {
-                        const options = {
-                            on_close: exitCallback,
-                        };
-                        core.bus.off('barcode_scanned', self, self._onBarcodeScannedHandler);
-                        return self.do_action(res, options);
-                    } else {
-                        return successCallback();
-                    }
+                return self._save().then(() => {
+                    return self._rpc({
+                        model: self.actionParams.model,
+                        method: self.methods.validate,
+                        context: context || {},
+                        args: [
+                            [self.currentState.id]
+                        ],
+                    }).then((res) => {
+                        if (_.isObject(res)) {
+                            const options = {
+                                on_close: exitCallback,
+                            };
+                            core.bus.off('barcode_scanned', self, self._onBarcodeScannedHandler);
+                            return self.do_action(res, options);
+                        } else {
+                            return successCallback();
+                        }
+                    });
                 });
             });
         },
