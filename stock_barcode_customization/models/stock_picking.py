@@ -11,7 +11,7 @@ class StockPicking(models.Model):
         res.append('x_studio_bag_')
         res.append('move_lines')
         res.append('x_studio_waybill_')
-        res.append('x_studio_waybill_url')
+        res.append('x_studio_waybill_url_')
         return res
 
     def get_barcode_view_state(self):
