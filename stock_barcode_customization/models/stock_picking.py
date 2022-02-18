@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
+import json
 from odoo import api, models, _
 from odoo.exceptions import ValidationError
+import requests
 
 
 class StockPicking(models.Model):
@@ -58,6 +60,41 @@ class StockPicking(models.Model):
             action['context'] = {'active_id': picking_id.id}
             action = {'action': action}
         return action
+
+    def button_validate(self):
+        res = super(StockPicking, self).button_validate()
+        if self.x_studio_waybill_ and self.x_studio_customer_reference and self.x_studio_bag_ and self.company_id.url:
+            url = self.company_id.url
+            package = []
+            for move_line in self.move_line_ids:
+                package_data = {
+                    "stockCode": move_line.product_id.default_code,
+                    "actualWeight": move_line.product_id.weight,
+                    "dimWeight": move_line.product_id.volume,
+                    "dimWidth": move_line.product_id.x_studio_width,
+                    "dimHeight": move_line.product_id.x_studio_height,
+                    "dimLength": move_line.product_id.x_studio_length,
+                    "serialNo": move_line.lot_id.name,
+                    "iccid": move_line.x_studio_iccid_,
+                    "imei": move_line.x_studio_imei_,
+                    "macAddr": move_line.x_studio_mac_address_,
+                    "cell": move_line.x_studio_cell_
+                }
+                package.append(package_data)
+            data = {
+                    "convergex-update-serials": {
+                        "waybillNo": self.x_studio_waybill_ or "",
+                        "refNo": self.x_studio_customer_reference or "",
+                        "bagNo": self.x_studio_bag_ or "",
+                        "package": package
+                    }
+                }
+            headers = {"Content-type": "application/json", "cache-control": "no-cache"}
+            response = requests.request("POST", url, headers=headers, data=json.dumps(data))
+            response_json = response.json()
+            if response_json['package-serials']['status'] == "failed":
+                raise ValidationError(_('%s.') % (response_json['package-serials']['reason']))
+        return res
 
 
 class StockMoveLine(models.Model):

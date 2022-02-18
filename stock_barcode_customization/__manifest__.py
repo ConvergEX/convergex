@@ -14,6 +14,7 @@
 
     'data': [
         'views/assets.xml',
+        'views/res_config.xml'
     ],
 
     'qweb': [
