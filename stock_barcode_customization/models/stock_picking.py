@@ -63,7 +63,7 @@ class StockPicking(models.Model):
 
     def button_validate(self):
         res = super(StockPicking, self).button_validate()
-        if self.x_studio_waybill_ and self.company_id.url:
+        if self.x_studio_waybill_ and self.company_id.convergex_api_url:
             url = self.company_id.convergex_api_url
             package = []
             for move_line in self.move_line_ids:
