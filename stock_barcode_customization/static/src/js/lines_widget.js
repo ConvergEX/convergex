@@ -532,7 +532,8 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                 }
                 if (!product || advanceSettings) {
                     var lot_ids = _.map(lots, function (lot) {
-                        return lot.id;
+                        if (lot.product_qty > 0)
+                            return lot.id;
                     });
                     prom = self._rpc({
                         model: 'product.product',
@@ -635,13 +636,17 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                         return Promise.reject(errorMessage);
                     }
                     if (self.currentState.picking_type_code == 'outgoing' && self.currentState.x_studio_bag_) {
-                        var lot_ids = _.map(res, function (lot) {
+                        var lots = res.filter(function (lot) {
+                            if (lot.product_qty <= 0) return false;
+                            return true;
+                        });
+                        var lot_ids = _.map(lots, function (lot) {
                             return lot.id;
                         });
                         return self._rpc({
                             model: 'product.product',
                             method: 'read_product_and_package',
-                            args: [res[0].product_id[0]],
+                            args: [lots[0].product_id[0]],
                             kwargs: {
                             lot_ids: lot_ids,
                             fetch_product: false,
@@ -655,7 +660,7 @@ odoo.define('stock_barcode_customization.LinesWidget', function(require) {
                                 self.do_warn(false, _t('You can not add product out of the order products'));
                                 return Promise.reject();
                             } else {
-                                return getLotInfo(res);
+                                return getLotInfo(lots);
                             }
                         });
                     }
