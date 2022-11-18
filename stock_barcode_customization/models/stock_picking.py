@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import json
-from odoo import api, models, _
+from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError
 import requests
 
@@ -100,6 +100,8 @@ class StockPicking(models.Model):
 class StockMoveLine(models.Model):
     _inherit = 'stock.move.line'
 
+    x_studio_waybill_ = fields.Char('Waybill #')
+
     @api.model
     def create(self, values):
         picking_id = self.env['stock.picking'].browse(values.get('picking_id'))
@@ -114,7 +116,10 @@ class StockMoveLine(models.Model):
             if qty_done > move_id.product_uom_qty:
                 raise ValidationError(
                     _('You can not add more than %s quantity of %s.') % (move_id.product_uom_qty, self.move_id.product_id.display_name))
-        return super(StockMoveLine, self).create(values)
+        res = super(StockMoveLine, self).create(values)
+        if res.picking_id and res.picking_id.x_studio_waybill_ and not res.x_studio_waybill_:
+            res.x_studio_waybill_ = res.picking_id.x_studio_waybill_
+        return res
 
     def write(self, vals):
         if vals.get('qty_done') and self._context.get('form_view_ref') and self.move_id.picking_type_id.code == 'outgoing':
