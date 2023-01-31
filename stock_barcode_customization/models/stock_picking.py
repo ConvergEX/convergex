@@ -78,7 +78,9 @@ class StockPicking(models.Model):
                     "iccid": move_line.x_studio_iccid_,
                     "imei": move_line.x_studio_imei_,
                     "macAddr": move_line.x_studio_mac_address_,
-                    "cell": move_line.x_studio_cell_
+                    "cell": move_line.x_studio_cell_,
+                    "source_package": move_line.package_id and move_line.package_id.name or '',
+                    "destination_package": move_line.result_package_id and move_line.result_package_id.name or '',
                 }
                 package.append(package_data)
             data = {
